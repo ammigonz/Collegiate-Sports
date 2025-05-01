@@ -1,0 +1,254 @@
+
+
+CREATE DATABASE sports_db;
+/* I used the table data import wizard to import my csv */ 
+/* in order to create tables from my existing large table, I needed to call the sport database it's in*/
+USE SPORTS_DB;
+
+select count(*)
+from participation;
+
+select distinct year
+from collegiate_sports;
+/* Created my first table with sector information */
+select count(*)
+	from sports; 
+
+CREATE TABLE SECTOR AS
+SELECT DISTINCT SECTOR_CD, SECTOR_NAME
+	FROM sports;
+
+DESCRIBE SECTOR; 
+
+/* Created my second table with location information */
+CREATE TABLE LOCATION AS
+SELECT DISTINCT ZIP_TEXT, CITY_TXT, STATE_CD
+	FROM sports;
+
+/* Created my third table with enrollment information */
+CREATE TABLE ENROLLMENT AS
+SELECT DISTINCT UNITID, YEAR, EF_TOTAL_COUNT, EF_MALE_COUNT, EF_FEMALE_COUNT
+	FROM sports;
+
+/* Created my fourth table with university information */
+CREATE TABLE UNIVERSITY AS
+SELECT DISTINCT UNITID, ZIP_TEXT, INSTITUTION_NAME, SECTOR_CD, CLASSIFICATION_CODE
+	FROM sports;
+
+/* Created my fifth table with sports information */
+CREATE TABLE SPORTNAME AS
+SELECT DISTINCT SPORTSCODE, SPORTS
+	FROM sports;
+
+/* Created my sixth table with sports division information */
+CREATE TABLE DIVISION AS
+SELECT DISTINCT CLASSIFICATION_CODE , CLASSIFICATION_NAME
+	FROM sports;
+
+/* Created my seventh table with division 8 "other" information */
+CREATE TABLE OTHER_DIVISION
+SELECT DISTINCT CLASSIFICATION_NAME, CLASSIFICATION_OTHER
+	FROM sports
+	WHERE CLASSIFICATION_NAME = "Other";
+
+/* I have two ID's I need to create because I had two many to many relationships that needed to be fixed.*/
+/* trying to first add it to collegiate sports */
+/* I created an empty column first for my program ID, fixing the first many to many relationship*/
+
+ALTER TABLE sports
+	ADD PROGRAM_ID varchar(300);
+/* then I combined all the values in the columns i need to create a unique ID for all the different combinations of sport within a university and division */
+
+UPDATE sports
+	SET PROGRAM_ID = CONCAT(UNITID, "-", CLASSIFICATION_CODE, "-", SPORTSCODE);
+/* I  then created the eigth table that program ID would be the primary key for, and where it would be stored */
+
+CREATE TABLE PROGRAM AS
+SELECT DISTINCT program_id, UNITID, CLASSIFICATION_CODE, Sportscode
+	FROM sports;
+
+/* now I have to make the second ID */
+/* I also began with altering the collegiate sports table and adding a column */
+ALTER TABLE sports
+	ADD Participation_ID varchar(300);
+
+/* then I combined all the values in the columns i need to create a unique ID for all the different combinations of sport within a university and division */
+UPDATE sports
+	SET participation_id = CONCAT(program_id, "-", year);
+
+/* I  then created the ninth table that PARTICIPATION ID would be the primary key for, and where it would be stored */
+
+CREATE TABLE PARTICIPATION AS
+SELECT DISTINCT 
+    participation_id, program_id, year, partic_women, 
+    partic_men, partic_coed_women, partic_coed_men, sum_partic_women, 
+    sum_partic_men, rev_women, rev_men, total_rev_menwomen,
+    total_exp_menwomen, exp_men, exp_women
+FROM sports;
+
+select * from sports;
+
+
+/*run my queries*/
+## how many universities are there
+select distinct count( unitid )
+	from university;
+    
+# are all states observed?
+
+SELECT state_cd, COUNT(*)
+FROM location
+GROUP BY state_cd
+ORDER BY COUNT(*) DESC;
+
+
+
+### how many universities are in DC
+SELECT COUNT(DISTINCT u.unitid) AS university_count
+FROM University u
+JOIN Location l ON u.zip_text = l.zip_text
+WHERE l.state_cd = 'DC';
+
+### how many universities are in CA
+SELECT COUNT(DISTINCT u.unitid) AS university_count
+FROM University u
+JOIN Location l ON u.zip_text = l.zip_text
+WHERE l.state_cd = 'CA';
+
+
+##Which state has the most universities in this dataset, what is the heiharcy of other states?
+SELECT state_cd, COUNT(unitid) AS university_count
+FROM location l
+JOIN university u
+ON l.zip_text = u.zip_text
+GROUP BY state_cd
+ORDER BY university_count DESC;
+
+### what schools and sports are the top revenues from (top 10 )
+
+SELECT distinct u.INSTITUTION_NAME, s.sports, p.total_rev_menwomen
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Sports s ON sp.sportscode = s.sportscode
+ORDER BY p.total_rev_menwomen DESC
+LIMIT 10;
+
+
+
+### what school and sports are the top participations from (top 10 )
+SELECT DISTINCT 
+    u.INSTITUTION_NAME, 
+    s.sports, 
+    d.class_name as division,
+    sec.sector_name,
+    (p.sum_partic_men + p.sum_partic_women) as total_participation
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Sports s ON sp.sportscode = s.sportscode
+JOIN Division d ON sp.class_code = d.class_code
+JOIN Sector sec ON u.sector_cd = sec.sector_cd
+ORDER BY (p.sum_partic_men + p.sum_partic_women) DESC
+LIMIT 10;
+  
+
+### what sports are the top participations of women from (top 10 )
+SELECT DISTINCT 
+    u.INSTITUTION_NAME,
+    s.sports, 
+    d.class_name as division,
+    sec.sector_name,
+    p.sum_partic_women as total_women_participation
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Sports s ON sp.sportscode = s.sportscode
+JOIN Division d ON sp.class_code = d.class_code
+JOIN Sector sec ON u.sector_cd = sec.sector_cd
+ORDER BY p.sum_partic_women DESC
+LIMIT 10;
+### what sports are the top participations  of men from (top 10 )
+SELECT DISTINCT 
+    u.INSTITUTION_NAME,
+    s.sports, 
+    d.class_name as division,
+    sec.sector_name,
+    p.sum_partic_men as total_women_participation
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Sports s ON sp.sportscode = s.sportscode
+JOIN Division d ON sp.class_code = d.class_code
+JOIN Sector sec ON u.sector_cd = sec.sector_cd
+ORDER BY p.sum_partic_men DESC
+LIMIT 10;
+
+## what were sports highest participations?
+SELECT s.sports AS sport_name,
+	AVG(p.sum_partic_men + p.sum_partic_women) AS AVG_participation
+	FROM Participation p
+	JOIN Program sp ON p.program_id = sp.program_id
+	JOIN Sports s ON sp.sportscode = s.sportscode
+	GROUP BY s.sports
+	ORDER BY total_participation DESC;
+
+
+## What sector of school’s have the most revenue?
+SELECT 
+    sec.sector_name AS sector,
+    SUM(p.total_rev_menwomen) AS total_revenue
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Sector sec ON u.sector_cd = sec.sector_cd
+GROUP BY sec.sector_name
+ORDER BY total_revenue DESC;
+
+
+## what sport has the highest combined revenue from all schools?
+SELECT 
+    s.sports AS sport_name,
+    SUM(p.total_rev_menwomen) AS total_revenue
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN Sports s ON sp.sportscode = s.sportscode
+GROUP BY s.sports
+ORDER BY total_revenue DESC;
+
+
+## What division has the most expenditure?
+SELECT 
+    d.class_name AS division,
+    SUM(p.total_exp_menwomen) as total_exp
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN Division d ON sp.class_code = d.class_code
+GROUP BY d.class_name
+ORDER BY total_exp DESC;
+
+## What school has the highest expenditure
+SELECT 
+    u.INSTITUTION_NAME AS school_name,
+    SUM(p.total_exp_menwomen) AS total_expenditure
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+GROUP BY u.INSTITUTION_NAME
+ORDER BY total_expenditure DESC;
+
+## What school in CA has the highest expenditure
+SELECT 
+    u.INSTITUTION_NAME AS school_name,
+    SUM(p.total_exp_menwomen) AS total_expenditure
+FROM Participation p
+JOIN Program sp ON p.program_id = sp.program_id
+JOIN University u ON sp.unitid = u.unitid
+JOIN Location l ON u.zip_text = l.zip_text
+WHERE STATE_CD = "CA"
+GROUP BY u.INSTITUTION_NAME
+ORDER BY total_expenditure DESC;
+
+
+
+
