@@ -45,7 +45,8 @@ The goal of this project was to analyze participation and financial data from U.
   - Filter by **state**, **institution**, and **year**
   - Visualizations of **top sports by participation and revenue**
   - Geographic analysis via ZIP code mapping
-- 📍 The dashboard and supporting queries are located in the `Phase_2/` folder
+- 📍 The supporting queries are located in the `Phase_2/` folder
+- 📊 The dashboard can be accessed through this link: https://lookerstudio.google.com/reporting/4ca1993a-5905-40bd-b6c8-3d6def134afa
 
 ---
 
@@ -74,5 +75,3 @@ The goal of this project was to analyze participation and financial data from U.
 - Building a user-friendly dashboard to share insights with non-technical audiences
 
 ---
-
-Let me know if you'd like a version tailored for a LinkedIn post or your portfolio too!
